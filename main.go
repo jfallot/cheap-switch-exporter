@@ -17,6 +17,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
@@ -176,6 +177,8 @@ func main() {
 	// Create custom collector
 	collector := NewPortStatsCollector(config)
 	prometheus.MustRegister(collector)
+	prometheus.Unregister(collectors.NewGoCollector())
+	prometheus.Unregister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 
 	// Start Prometheus HTTP server
 	http.Handle("/metrics", promhttp.Handler())
@@ -185,6 +188,11 @@ func main() {
 			log.Fatalf("HTTP server error: %v", err)
 		}
 	}()
+
+	// Exporter with gometrics only
+	promReg := prometheus.NewRegistry()
+	promReg.Register(collectors.NewGoCollector())
+	http.Handle("/gometrics", promhttp.HandlerFor(promReg, promhttp.HandlerOpts{}))
 
 	// Graceful shutdown handling
 	stop := make(chan os.Signal, 1)
